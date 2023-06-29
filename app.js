@@ -3,22 +3,13 @@ const admin = require('firebase-admin');
 
 const app = express();
 
-// TODO: Uncomment out line 13
-// Refer to Picture Example Folder for help for below instructions. (hit the gear for settings, click projecgt settings, then click service accounts)
-// In your firebase project settings it will give you an option to "create service account".
-// This generates a service account json file. Download it, and put the file in this project. 
-// Enter the path to your service account json file below where it says "REPLACE_WITH_SERVICE_ACCOUNT"
-// If you need more help with this step go here: https://firebase.google.com/docs/admin/setup
+const serviceAccount = require("./home/timmyallmadn/allmadn_exporter/dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
 
-const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
 
-// TODO: Uncomment out line 17-21
-// Enter your database url from firebase where it says <DATABASE_NAME> below.
-// Refer to picture for reference. It's the 2nd property.
- admin.initializeApp({
-   credential: admin.credential.cert(serviceAccount),
-   databaseURL: "https://dnvrml-default-rtdb.firebaseio.com/"
- });
+const firestore = admin.firestore();
 
 app.set('port', (process.env.PORT || 3001));
 
@@ -26,43 +17,37 @@ app.get('*', (req, res) => {
     res.send('Madden Companion Exporter');
 });
 
-app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
-    const db = admin.database();
-    const ref = db.ref();
+app.post('/:username/:platform/:leagueId/leagueteams', async (req, res) => {
     let body = '';
     req.on('data', chunk => {
         body += chunk.toString();
     });
-    req.on('end', () => {
+    req.on('end', async () => {
         const { leagueTeamInfoList: teams } = JSON.parse(body);
         const {params: { username, leagueId }} = req;
 
-        teams.forEach(team => {
-            const teamRef = ref.child(`data/${username}/${leagueId}/teams/${team.teamId}`);
-            teamRef.set(team);
-        });
+        for (let team of teams) {
+            const teamRef = firestore.doc(`data/${username}/${leagueId}/teams/${team.teamId}`);
+            await teamRef.set(team);
+        }
 
         res.sendStatus(200);
     });
 });
 
-app.post('/:username/:platform/:leagueId/standings', (req, res) => {
-    const db = admin.database();
-    const ref = db.ref();
+app.post('/:username/:platform/:leagueId/standings', async (req, res) => {
     let body = '';
     req.on('data', chunk => {
         body += chunk.toString();
     });
-    req.on('end', () => {
+    req.on('end', async () => {
         const { teamStandingInfoList: teams } = JSON.parse(body);
         const {params: { username, leagueId }} = req;
 
-        teams.forEach(team => {
-            const teamRef = ref.child(
-                `data/${username}/${leagueId}/teams/${team.teamId}`
-            );
-            teamRef.set(team);
-        });
+        for (let team of teams) {
+            const teamRef = firestore.doc(`data/${username}/${leagueId}/teams/${team.teamId}`);
+            await teamRef.set(team);
+        }
 
         res.sendStatus(200);
     });
@@ -74,130 +59,453 @@ function capitalizeFirstLetter(string) {
 
 app.post(
     '/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType',
-    (req, res) => {
-        const db = admin.database();
-        const ref = db.ref();
-        const {
-            params: { username, leagueId, weekType, weekNumber, dataType },
-        } = req;
-        const basePath = `data/${username}/${leagueId}/`;
-        // "defense", "kicking", "passing", "punting", "receiving", "rushing"
-        const statsPath = `${basePath}stats`;
+    async (req, res) => {
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
         });
-        req.on('end', () => {
+        req.on('end', async () => {
+            const {
+                params: { username, leagueId, weekType, weekNumber, dataType },
+            } = req;
+            const basePath = `data/${username}/${leagueId}/`;
+            const statsPath = `${basePath}stats`;
+
             switch (dataType) {
                 case 'schedules': {
-                    const weekRef = ref.child(
-                        `${basePath}schedules/${weekType}/${weekNumber}`
-                    );
+                    const weekRef = firestore.doc(`${basePath}schedules/${weekType}/${weekNumber}`);
                     const { gameScheduleInfoList: schedules } = JSON.parse(body);
-                    weekRef.set(schedules);
+                    await weekRef.set({schedules});
                     break;
                 }
                 case 'teamstats': {
                     const { teamStatInfoList: teamStats } = JSON.parse(body);
-                    teamStats.forEach(stat => {
-                        const weekRef = ref.child(
-                            `${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/team-stats`
-                        );
-                        weekRef.set(stat);
-                    });
+                    for (let stat of teamStats) {
+                        const weekRef = firestore.doc(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/team-stats`);
+                        await weekRef.set(stat);
+                    }
                     break;
                 }
                 case 'defense': {
                     const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
-                    defensiveStats.forEach(stat => {
-                        const weekRef = ref.child(
-                            `${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`
-                        );
-                        weekRef.set(stat);
-                    });
+                    for (let stat of defensiveStats) {
+                        const weekRef = firestore.doc(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`);
+                        await weekRef.set(stat);
+                    }
                     break;
                 }
                 default: {
-                    const property = `player${capitalizeFirstLetter(
-                        dataType
-                    )}StatInfoList`;
-                    const stats = JSON.parse(body)[property];
-                    stats.forEach(stat => {
-                        const weekRef = ref.child(
-                            `${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`
-                        );
-                        weekRef.set(stat);
-                    });
-                    break;
+                    const property = `player${capitalizeFirstLetter(dataType)}Sure, here's a full modification of the code. This modification involves changing all the `admin.database()` calls to `admin.firestore()` and modifying how we access collections and documents in Firestore.
+
+```javascript
+const express = require('express');
+const admin = require('firebase-admin');
+
+const app = express();
+
+const serviceAccount = require("./home/timmyallmadn/allmadn_exporter/dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+app.set('port', (process.env.PORT || 3001));
+
+app.get('*', (req, res) => {
+    res.send('Madden Companion Exporter');
+});
+
+app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { leagueTeamInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+app.post('/:username/:platform/:leagueId/standings', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { teamStandingInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const {
+            params: { username, leagueId, weekType, weekNumber, dataType },
+        } = req;
+        const basePath = `data/${username}/${leagueId}/`;
+        const statsPath = `${basePath}stats`;
+
+        switch (dataType) {
+            case 'schedules': {
+                const weekRef = db.collection(`${basePath}schedules/${weekType}`).doc(`${weekNumber}`);
+                const { gameScheduleInfoList: schedules } = JSON.parse(body);
+                await weekRef.set({ schedules });
+                break;
+            }
+            case 'teamstats': {
+                const { teamStatInfoList: teamStats } = JSON.parse(body);
+                for(let stat of teamStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}`).doc('team-stats');
+                    await weekRef.set(stat);
                 }
+                break;
             }
+            case 'defense': {
+                const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
+                for(let stat of defensiveStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            default: {
+                const property = `playerSure, here's a full modification of the code. This modification involves changing all the `admin.database()` calls to `admin.firestore()` and modifying how we access collections and documents in Firestore.
 
-            res.sendStatus(200);
-        });
-    }
-);
+```javascript
+const express = require('express');
+const admin = require('firebase-admin');
 
-// ROSTERS
-app.post('/:username/:platform/:leagueId/freeagents/roster', (req, res) => {
-    const db = admin.database();
-    const ref = db.ref();
-    const {
-        params: { username, leagueId, teamId }
-    } = req;
+const app = express();
+
+const serviceAccount = require("./home/timmyallmadn/allmadn_exporter/dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+app.set('port', (process.env.PORT || 3001));
+
+app.get('*', (req, res) => {
+    res.send('Madden Companion Exporter');
+});
+
+app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
     let body = '';
     req.on('data', chunk => {
         body += chunk.toString();
     });
-    req.on('end', () => {
-        const { rosterInfoList } = JSON.parse(body);
-        const dataRef = ref.child(
-            `data/${username}/${leagueId}/freeagents`
-        );
-        const players = {};
-        rosterInfoList.forEach(player => {
-            players[player.rosterId] = player;
-        });
-        dataRef.set(players, error => {
-            if (error) {
-                console.log('Data could not be saved.' + error);
-            } else {
-                console.log('Data saved successfully.');
-            }
-        });
+    req.on('end', async () => {
+        const { leagueTeamInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
         res.sendStatus(200);
-    });    
+    });
 });
 
-app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
-    const db = admin.database();
-    const ref = db.ref();
-    const {
-        params: { username, leagueId, teamId }
-    } = req;
+app.post('/:username/:platform/:leagueId/standings', (req, res) => {
     let body = '';
     req.on('data', chunk => {
         body += chunk.toString();
     });
-    req.on('end', () => {
-        const { rosterInfoList } = JSON.parse(body);
-        const dataRef = ref.child(
-            `data/${username}/${leagueId}/teams/${teamId}/roster`
-        );
-        const players = {};
-        rosterInfoList.forEach(player => {
-            players[player.rosterId] = player;
-        });
-        dataRef.set(players, error => {
-            if (error) {
-                console.log('Data could not be saved.' + error);
-            } else {
-                console.log('Data saved successfully.');
-            }
-        });
+    req.on('end', async () => {
+        const { teamStandingInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
         res.sendStatus(200);
     });
 });
 
-app.listen(app.get('port'), () =>
-    console.log('Madden Data is running on port', app.get('port'))
-);
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const {
+            params: { username, leagueId, weekType, weekNumber, dataType },
+        } = req;
+        const basePath = `data/${username}/${leagueId}/`;
+        const statsPath = `${basePath}stats`;
+
+        switch (dataType) {
+            case 'schedules': {
+                const weekRef = db.collection(`${basePath}schedules/${weekType}`).doc(`${weekNumber}`);
+                const { gameScheduleInfoList: schedules } = JSON.parse(body);
+                await weekRef.set({ schedules });
+                break;
+            }
+            case 'teamstats': {
+                const { teamStatInfoList: teamStats } = JSON.parse(body);
+                for(let stat of teamStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}`).doc('team-stats');
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            case 'defense': {
+                const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
+                for(let stat of defensiveStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            default: {
+                const property = `playerSure, here's a full modification of the code. This modification involves changing all the `admin.database()` calls to `admin.firestore()` and modifying how we access collections and documents in Firestore.
+
+```javascript
+const express = require('express');
+const admin = require('firebase-admin');
+
+const app = express();
+
+const serviceAccount = require("./home/timmyallmadn/allmadn_exporter/dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+app.set('port', (process.env.PORT || 3001));
+
+app.get('*', (req, res) => {
+    res.send('Madden Companion Exporter');
+});
+
+app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { leagueTeamInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+app.post('/:username/:platform/:leagueId/standings', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { teamStandingInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const {
+            params: { username, leagueId, weekType, weekNumber, dataType },
+        } = req;
+        const basePath = `data/${username}/${leagueId}/`;
+        const statsPath = `${basePath}stats`;
+
+        switch (dataType) {
+            case 'schedules': {
+                const weekRef = db.collection(`${basePath}schedules/${weekType}`).doc(`${weekNumber}`);
+                const { gameScheduleInfoList: schedules } = JSON.parse(body);
+                await weekRef.set({ schedules });
+                break;
+            }
+            case 'teamstats': {
+                const { teamStatInfoList: teamStats } = JSON.parse(body);
+                for(let stat of teamStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}`).doc('team-stats');
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            case 'defense': {
+                const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
+                for(let stat of defensiveStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            default: {
+                const property = `playerSure, here's a full modification of the code. This modification involves changing all the `admin.database()` calls to `admin.firestore()` and modifying how we access collections and documents in Firestore.
+
+```javascript
+const express = require('express');
+const admin = require('firebase-admin');
+
+const app = express();
+
+const serviceAccount = require("./home/timmyallmadn/allmadn_exporter/dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+app.set('port', (process.env.PORT || 3001));
+
+app.get('*', (req, res) => {
+    res.send('Madden Companion Exporter');
+});
+
+app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { leagueTeamInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+app.post('/:username/:platform/:leagueId/standings', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const { teamStandingInfoList: teams } = JSON.parse(body);
+        const {params: { username, leagueId }} = req;
+
+        for(let team of teams) {
+            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            await teamRef.set(team);
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+    req.on('end', async () => {
+        const {
+            params: { username, leagueId, weekType, weekNumber, dataType },
+        } = req;
+        const basePath = `data/${username}/${leagueId}/`;
+        const statsPath = `${basePath}stats`;
+
+        switch (dataType) {
+            case 'schedules': {
+                const weekRef = db.collection(`${basePath}schedules/${weekType}`).doc(`${weekNumber}`);
+                const { gameScheduleInfoList: schedules } = JSON.parse(body);
+                await weekRef.set({ schedules });
+                break;
+            }
+            case 'teamstats': {
+                const { teamStatInfoList: teamStats } = JSON.parse(body);
+                for(let stat of teamStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}`).doc('team-stats');
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            case 'defense': {
+                const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
+                for(let stat of defensiveStats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+            default: {
+                const property = `playerApologies for the abrupt cut-off. Here's the completion of the code:
+
+```javascript
+                const property = `player${capitalizeFirstLetter(dataType)}StatInfoList`;
+                const stats = JSON.parse(body)[property];
+
+                for(let stat of stats) {
+                    const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+                    await weekRef.set(stat);
+                }
+                break;
+            }
+        }
+
+        res.sendStatus(200);
+    });
+});
+
+app.listen(app.get('port'), function () {
+    console.log('Server started on port ' + app.get('port'));
+});
+             
