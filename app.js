@@ -1,13 +1,14 @@
 const express = require('express');
 const admin = require('firebase-admin');
+const app = express();
+
 const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
-const app = express();
 
 app.set('port', (process.env.PORT || 3001));
 
@@ -15,21 +16,40 @@ app.get('*', (req, res) => {
   res.send('Madden Companion Exporter');
 });
 
-app.post('/:username/:platform/:leagueId/standings', (req, res) => {
+app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
+  console.log('Received request at /leagueteams');
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
   });
   req.on('end', async () => {
-    console.log(body); // Added debug log
+    console.log('Received body at /leagueteams:', body);
+    const { leagueTeamInfoList: teams } = JSON.parse(body);
+    const {params: { username, leagueId }} = req;
+
+    for(let team of teams) {
+      const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+      await teamRef.set(team);
+    }
+
+    res.sendStatus(200);
+  });
+});
+
+app.post('/:username/:platform/:leagueId/standings', (req, res) => {
+  console.log('Received request at /standings');
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+  req.on('end', async () => {
+    console.log('Received body at /standings:', body);
     const { teamStandingInfoList: teams } = JSON.parse(body);
     const {params: { username, leagueId }} = req;
 
     for(let team of teams) {
       const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
-      await teamRef.set(team)
-        .then(() => console.log(`Wrote team ${team.teamId} to Firestore`)) // Log successful writes
-        .catch(err => console.error(`Error writing team ${team.teamId} to Firestore: ${err}`)); // Log errors
+      await teamRef.set(team);
     }
 
     res.sendStatus(200);
@@ -41,22 +61,28 @@ function capitalizeFirstLetter(string) {
 }
 
 app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
+  console.log('Received request at /week');
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
   });
   req.on('end', async () => {
-    console.log(body); // Added debug log
+    console.log('Received body at /week:', body);
     const {params: { username, leagueId, weekType, weekNumber, dataType }} = req;
     const statsPath = `data/${username}/${leagueId}/stats`;
-    const property = `player${capitalizeFirstLetter(dataType)}StatInfoList`;
-    const stats = JSON.parse(body)[property];
 
-    for(let stat of stats) {
-      const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
-      await weekRef.set(stat)
-        .then(() => console.log(`Wrote stat for player ${stat.rosterId} to Firestore`)) // Log successful writes
-        .catch(err => console.error(`Error writing stat for player ${stat.rosterId} to Firestore: ${err}`)); // Log errors
+    switch (dataType) {
+      case 'schedules':
+      case 'teamstats':
+      case 'defense':
+        const property = `player${capitalizeFirstLetter(dataType)}StatInfoList`;
+        const stats = JSON.parse(body)[property];
+
+        for(let stat of stats) {
+          const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+          await weekRef.set(stat);
+        }
+        break;
     }
 
     res.sendStatus(200);
