@@ -1,49 +1,31 @@
 const express = require('express');
 const admin = require('firebase-admin');
-const app = express();
-
-const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+const serviceAccount = require('./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
+const app = express();
 
-app.set('port', (process.env.PORT || 3001));
+app.set('port', (process.env.PORT || 5000));
+app.use(express.static(__dirname + '/public'));
 
-app.get('*', (req, res) => {
-  res.send('Madden Companion Exporter');
-});
-
-app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
-  console.log('Received request at /leagueteams');
-  let body = '';
-  req.on('data', chunk => {
-    body += chunk.toString();
-  });
-  req.on('end', async () => {
-    console.log('Received body at /leagueteams:', body);
-    const { leagueTeamInfoList: teams } = JSON.parse(body);
-    const {params: { username, leagueId }} = req;
-
-    for(let team of teams) {
-      const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
-      await teamRef.set(team);
-    }
-
-    res.sendStatus(200);
-  });
+app.get('/', function(request, response) {
+  response.send('Hello World!')
 });
 
 app.post('/:username/:platform/:leagueId/standings', (req, res) => {
-  console.log('Received request at /standings');
+  console.log('Received a request for standings');
+  
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
   });
+
   req.on('end', async () => {
-    console.log('Received body at /standings:', body);
+    console.log('Request data:', body);
     const { teamStandingInfoList: teams } = JSON.parse(body);
     const {params: { username, leagueId }} = req;
 
@@ -56,39 +38,45 @@ app.post('/:username/:platform/:leagueId/standings', (req, res) => {
   });
 });
 
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-app.post('/:username/:platform/:leagueId/week/:weekType/:weekNumber/:dataType', (req, res) => {
-  console.log('Received request at /week');
+app.post('/:username/:platform/:leagueId/:weekType/:weekNumber/:dataType', (req, res) => {
+  console.log('Received a request for week data');
+  
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
   });
+
   req.on('end', async () => {
-    console.log('Received body at /week:', body);
+    console.log('Request data:', body);
+    const { teamStatInfoList: teams } = JSON.parse(body);
     const {params: { username, leagueId, weekType, weekNumber, dataType }} = req;
-    const statsPath = `data/${username}/${leagueId}/stats`;
 
-    switch (dataType) {
-      case 'schedules':
-      case 'teamstats':
-      case 'defense':
-        const property = `player${capitalizeFirstLetter(dataType)}StatInfoList`;
-        const stats = JSON.parse(body)[property];
+    const statsPath = `data/${username}/${leagueId}/weeks/${weekType}/${weekNumber}/${dataType}`;
 
-        for(let stat of stats) {
-          const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
-          await weekRef.set(stat);
-        }
-        break;
+    for(let team of teams) {
+      const teamRef = db.collection(`${statsPath}/teams`).doc(`${team.teamId}`);
+      await teamRef.set(team);
+    }
+
+    if(dataType === 'player') {
+      const property = `player${capitalizeFirstLetter(dataType)}StatInfoList`;
+      const stats = JSON.parse(body)[property];
+      console.log('Stats:', stats);
+
+      for(let stat of stats) {
+        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
+        await weekRef.set(stat);
+      }
     }
 
     res.sendStatus(200);
   });
 });
 
-app.listen(app.get('port'), function () {
+app.listen(app.get('port'), function() {
   console.log('Server started on port ' + app.get('port'));
 });
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
