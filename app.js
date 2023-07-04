@@ -3,13 +3,11 @@ const admin = require('firebase-admin');
 
 const app = express();
 
-// TODO: Uncomment out line 13
- const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
 
-// TODO: Uncomment out line 17-21
- admin.initializeApp({
+admin.initializeApp({
    credential: admin.credential.cert(serviceAccount),
- });
+});
 
 app.set('port', (process.env.PORT || 3001));
 
@@ -86,26 +84,26 @@ app.post(
             const promises = [];
             switch (dataType) {
                 case 'schedules': {
-                    const weekRef = db.collection(`${basePath}schedules/${weekType}/${weekNumber}`);
+                    const weekRef = db.collection(`${basePath}schedules`).doc(`${weekType}/${weekNumber}`);
                     const { gameScheduleInfoList: schedules } = JSON.parse(body);
                     schedules.forEach(schedule => {
-                        promises.push(weekRef.doc().set(schedule));
+                        promises.push(weekRef.set(schedule));
                     });
                     break;
                 }
                 case 'teamstats': {
                     const { teamStatInfoList: teamStats } = JSON.parse(body);
                     teamStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/team-stats`);
-                        promises.push(weekRef.doc().set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId/team-stats`);
+                        promises.push(weekRef.set(stat));
                     });
                     break;
                 }
                 case 'defense': {
                     const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
                     defensiveStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`);
-                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`);
+                        promises.push(weekRef.set(stat));
                     });
                     break;
                 }
@@ -115,8 +113,8 @@ app.post(
                     )}StatInfoList`;
                     const stats = JSON.parse(body)[property];
                     stats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`);
-                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`);
+                        promises.push(weekRef.set(stat));
                     });
                     break;
                 }
@@ -136,7 +134,7 @@ app.post(
 app.post('/:username/:platform/:leagueId/freeagents/roster', (req, res) => {
     const db = admin.firestore();
     const {
-        params: { username, leagueId, teamId }
+        params: { username, leagueId }
     } = req;
     let body = '';
     req.on('data', chunk => {
@@ -186,3 +184,4 @@ app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
 app.listen(app.get('port'), () =>
     console.log('Madden Data is running on port', app.get('port'))
 );
+              
