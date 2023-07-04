@@ -74,8 +74,8 @@ app.post(
         const {
             params: { username, leagueId, weekType, weekNumber, dataType },
         } = req;
-        const basePath = `data/${username}/${leagueId}/`;
-        const statsPath = `${basePath}stats`;
+        const basePath = `data/${username}/${leagueId}`;
+        const statsPath = `${basePath}/stats`;
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
@@ -84,7 +84,7 @@ app.post(
             const promises = [];
             switch (dataType) {
                 case 'schedules': {
-                    const weekRef = db.collection(`${basePath}schedules`).doc(`${weekType}/${weekNumber}`);
+                    const weekRef = db.collection(`${basePath}/schedules`).doc(`${weekType}/${weekNumber}`);
                     const { gameScheduleInfoList: schedules } = JSON.parse(body);
                     schedules.forEach(schedule => {
                         promises.push(weekRef.set(schedule));
@@ -94,15 +94,16 @@ app.post(
                 case 'teamstats': {
                     const { teamStatInfoList: teamStats } = JSON.parse(body);
                     teamStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId/team-stats`);
+                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/team-stats`).doc();
                         promises.push(weekRef.set(stat));
                     });
                     break;
                 }
-                case 'defense': {
+
+                  case 'defense': {
                     const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
                     defensiveStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`);
+                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
                         promises.push(weekRef.set(stat));
                     });
                     break;
@@ -113,7 +114,7 @@ app.post(
                     )}StatInfoList`;
                     const stats = JSON.parse(body)[property];
                     stats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}/${weekNumber}/${stat.teamId}/player-stats/${stat.rosterId}`);
+                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
                         promises.push(weekRef.set(stat));
                     });
                     break;
@@ -184,4 +185,3 @@ app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
 app.listen(app.get('port'), () =>
     console.log('Madden Data is running on port', app.get('port'))
 );
-              
