@@ -4,12 +4,12 @@ const admin = require('firebase-admin');
 const app = express();
 
 // TODO: Uncomment out line 13
-// const serviceAccount = require("./REPLACE_WITH_SERVICE_ACCOUNT.json");
+ const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
 
 // TODO: Uncomment out line 17-21
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-// });
+ admin.initializeApp({
+   credential: admin.credential.cert(serviceAccount),
+ });
 
 app.set('port', (process.env.PORT || 3001));
 
