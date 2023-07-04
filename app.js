@@ -6,7 +6,7 @@ const app = express();
 const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
 
 admin.initializeApp({
-   credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount),
 });
 
 app.set('port', (process.env.PORT || 3001));
@@ -26,7 +26,7 @@ app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
         const {params: { username, leagueId }} = req;
 
         const promises = teams.map(team => {
-            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            const teamRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${team.teamId}`);
             return teamRef.set(team);
         });
 
@@ -50,7 +50,7 @@ app.post('/:username/:platform/:leagueId/standings', (req, res) => {
         const {params: { username, leagueId }} = req;
 
         const promises = teams.map(team => {
-            const teamRef = db.collection(`data/${username}/${leagueId}/teams`).doc(`${team.teamId}`);
+            const teamRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${team.teamId}`);
             return teamRef.set(team);
         });
 
@@ -74,8 +74,8 @@ app.post(
         const {
             params: { username, leagueId, weekType, weekNumber, dataType },
         } = req;
-        const basePath = `data/${username}/${leagueId}`;
-        const statsPath = `${basePath}/stats`;
+        const basePath = `data/${username}/${leagueId}/`;
+        const statsPath = `${basePath}stats`;
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
@@ -84,27 +84,26 @@ app.post(
             const promises = [];
             switch (dataType) {
                 case 'schedules': {
-                    const weekRef = db.collection(`${basePath}/schedules`).doc(`${weekType}/${weekNumber}`);
+                    const weekRef = db.collection(`${basePath}schedules`).doc(`${weekType}`).collection(`${weekNumber}`);
                     const { gameScheduleInfoList: schedules } = JSON.parse(body);
                     schedules.forEach(schedule => {
-                        promises.push(weekRef.set(schedule));
+                        promises.push(weekRef.doc().set(schedule));
                     });
                     break;
                 }
                 case 'teamstats': {
                     const { teamStatInfoList: teamStats } = JSON.parse(body);
                     teamStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/team-stats`).doc();
-                        promises.push(weekRef.set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('team-stats');
+                        promises.push(weekRef.doc().set(stat));
                     });
                     break;
                 }
-
-                  case 'defense': {
+                case'defense': {
                     const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
                     defensiveStats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
-                        promises.push(weekRef.set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('player-stats');
+                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
                     });
                     break;
                 }
@@ -114,8 +113,8 @@ app.post(
                     )}StatInfoList`;
                     const stats = JSON.parse(body)[property];
                     stats.forEach(stat => {
-                        const weekRef = db.collection(`${statsPath}/${weekType}/${weekNumber}/${stat.teamId}/player-stats`).doc(`${stat.rosterId}`);
-                        promises.push(weekRef.set(stat));
+                        const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('player-stats');
+                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
                     });
                     break;
                 }
@@ -143,9 +142,9 @@ app.post('/:username/:platform/:leagueId/freeagents/roster', (req, res) => {
     });
     req.on('end', () => {
         const { rosterInfoList } = JSON.parse(body);
-        const dataRef = db.collection(`data/${username}/${leagueId}/freeagents`);
+        const dataRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('freeagents');
         const promises = rosterInfoList.map(player => {
-            return dataRef.doc(`${player.rosterId}`).set(player);
+            return dataRef.collection(`${player.rosterId}`).set(player);
         });
 
         Promise.all(promises)
@@ -168,9 +167,9 @@ app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
     });
     req.on('end', () => {
         const { rosterInfoList } = JSON.parse(body);
-        const dataRef = db.collection(`data/${username}/${leagueId}/teams/${teamId}/roster`);
+        const dataRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${teamId}`).doc('roster');
         const promises = rosterInfoList.map(player => {
-            return dataRef.doc(`${player.rosterId}`).set(player);
+            return dataRef.collection(`${player.rosterId}`).set(player);
         });
 
         Promise.all(promises)
