@@ -27,7 +27,7 @@ app.post('/:username/:platform/:leagueId/leagueteams', (req, res) => {
 
         const promises = teams.map(team => {
             const teamRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${team.teamId}`);
-            return teamRef.set(team);
+            return teamRef.add(team); // Change made here
         });
 
         Promise.all(promises)
@@ -51,7 +51,7 @@ app.post('/:username/:platform/:leagueId/standings', (req, res) => {
 
         const promises = teams.map(team => {
             const teamRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${team.teamId}`);
-            return teamRef.set(team);
+            return teamRef.add(team); // Change made here
         });
 
         Promise.all(promises)
@@ -87,7 +87,7 @@ app.post(
                     const weekRef = db.collection(`${basePath}schedules`).doc(`${weekType}`).collection(`${weekNumber}`);
                     const { gameScheduleInfoList: schedules } = JSON.parse(body);
                     schedules.forEach(schedule => {
-                        promises.push(weekRef.doc().set(schedule));
+                        promises.push(weekRef.add(schedule)); // Change made here
                     });
                     break;
                 }
@@ -95,7 +95,7 @@ app.post(
                     const { teamStatInfoList: teamStats } = JSON.parse(body);
                     teamStats.forEach(stat => {
                         const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('team-stats');
-                        promises.push(weekRef.doc().set(stat));
+                        promises.push(weekRef.add(stat)); // Change made here
                     });
                     break;
                 }
@@ -103,7 +103,7 @@ app.post(
                     const { playerDefensiveStatInfoList: defensiveStats } = JSON.parse(body);
                     defensiveStats.forEach(stat => {
                         const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('player-stats');
-                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
+                        promises.push(weekRef.add(stat)); // Change made here
                     });
                     break;
                 }
@@ -114,7 +114,7 @@ app.post(
                     const stats = JSON.parse(body)[property];
                     stats.forEach(stat => {
                         const weekRef = db.collection(`${statsPath}`).doc(`${weekType}`).collection(`${weekNumber}`).doc(`${stat.teamId}`).collection('player-stats');
-                        promises.push(weekRef.doc(`${stat.rosterId}`).set(stat));
+                        promises.push(weekRef.add(stat)); // Change made here
                     });
                     break;
                 }
@@ -144,7 +144,7 @@ app.post('/:username/:platform/:leagueId/freeagents/roster', (req, res) => {
         const { rosterInfoList } = JSON.parse(body);
         const dataRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('freeagents');
         const promises = rosterInfoList.map(player => {
-            return dataRef.collection(`${player.rosterId}`).set(player);
+            return dataRef.collection(`${player.rosterId}`).add(player); // Change made here
         });
 
         Promise.all(promises)
@@ -169,7 +169,7 @@ app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
         const { rosterInfoList } = JSON.parse(body);
         const dataRef = db.collection(`data`).doc(`${username}`).collection(`${leagueId}`).doc('teams').collection(`${teamId}`).doc('roster');
         const promises = rosterInfoList.map(player => {
-            return dataRef.collection(`${player.rosterId}`).set(player);
+            return dataRef.collection(`${player.rosterId}`).add(player); // Change made here
         });
 
         Promise.all(promises)
@@ -184,3 +184,4 @@ app.post('/:username/:platform/:leagueId/team/:teamId/roster', (req, res) => {
 app.listen(app.get('port'), () =>
     console.log('Madden Data is running on port', app.get('port'))
 );
+                      
