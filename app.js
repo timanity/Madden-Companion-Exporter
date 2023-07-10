@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 
 const app = express();
 
-const serviceAccount = require("./dnvrml-firebase-adminsdk-4324d-ed280e5d01.json");
+const serviceAccount = require("./allmadn-firebase-adminsdk-k9dav-d8406374ea.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
